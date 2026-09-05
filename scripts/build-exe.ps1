@@ -12,4 +12,7 @@ $py = "backend\.venv\Scripts\python.exe"
 Write-Host "3/4 pyinstaller"
 & $py -m PyInstaller desktop\somnia.spec --noconfirm --distpath release --workpath release\build
 
-Write-Host "4/4 done"
+Write-Host "4/5 installer"
+powershell -ExecutionPolicy Bypass -File .\scripts\build-installer.ps1
+
+Write-Host "5/5 done"

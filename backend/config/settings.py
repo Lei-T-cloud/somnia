@@ -15,11 +15,12 @@ def _data_dir() -> Path:
         path = Path(override)
         path.mkdir(parents=True, exist_ok=True)
         return path
-    if getattr(sys, "frozen", False):
+    if os.name == "nt":
         root = Path(os.environ.get("LOCALAPPDATA") or Path.home() / "AppData" / "Local") / "Somnia"
-        root.mkdir(parents=True, exist_ok=True)
-        return root
-    return Path(__file__).resolve().parent.parent
+    else:
+        root = Path(os.environ.get("XDG_DATA_HOME") or Path.home() / ".local" / "share") / "Somnia"
+    root.mkdir(parents=True, exist_ok=True)
+    return root
 
 
 BASE_DIR = _bundle_dir()

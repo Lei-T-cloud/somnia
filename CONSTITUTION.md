@@ -99,7 +99,7 @@ GuestPreference → SleepSceneEngine → HotelDigitalTwin ⇄ EnvSimulator
 - Python 3.11 + 虚拟环境 `backend/.venv`
 - Django + django-simpleui：数据后台 UI
 - Django REST Framework：前台所需 REST API
-- SQLite（`backend/somnia_django.db`）：零运维
+- SQLite（本机统一数据目录 `%LOCALAPPDATA%/Somnia/somnia_django.db`，可用 `SOMNIA_DATA` 覆盖）：开发版与桌面版共用同一份库，零运维
 - 规则引擎与环境仿真：`backend/app/engine/`（权威实现）
 - 仿真由后端线程推进；前台轮询房间与趋势
 

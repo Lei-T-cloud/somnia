@@ -40,7 +40,7 @@ backend/                 Django 后台
   manage.py / run.py
 ```
 
-不要把演示数据写进 `backend/.venv`。不要提交 `*.db`、`node_modules`、`dist`。
+数据目录（开发版与桌面版共用）：`%LOCALAPPDATA%/Somnia/somnia_django.db`。可用环境变量 `SOMNIA_DATA` 覆盖。不要把演示数据写进 `backend/.venv`。不要提交 `*.db`、`node_modules`、`dist`。
 
 ---
 
@@ -138,6 +138,7 @@ backend/                 Django 后台
 - 数据后台：注册后须主管理员在 SimpleUI「数据后台账号」中同意
 - 发信：SimpleUI「发信设置」填写 SMTP 授权码后才能寄出验证码
 - 初始化：`backend/.venv/Scripts/python.exe manage.py init_hotel`
+- 库文件：`%LOCALAPPDATA%/Somnia/somnia_django.db`（`manage.py` 与 exe 同一份）
 
 ---
 

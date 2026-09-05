@@ -17,6 +17,10 @@ class Account(models.Model):
         verbose_name = "前台账号"
         verbose_name_plural = "前台账号"
 
+    def save(self, *args, **kwargs):
+        self.email = (self.email or "").strip().lower()
+        super().save(*args, **kwargs)
+
     def __str__(self) -> str:
         return f"{self.nickname} ({self.email})"
 

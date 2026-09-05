@@ -67,7 +67,13 @@ def login(request: Request) -> JsonResponse:
     if not consume_captcha(captcha_id, captcha_text):
         return fail("图形验证码不正确")
     account = Account.objects.filter(email=email).first()
-    if not account or not verify_password(password, account.password):
+    if not account:
+        from django.contrib.auth.models import User
+
+        if User.objects.filter(username__iexact=email).exists() or User.objects.filter(email__iexact=email).exists():
+            return fail("这是数据后台用户，不能在前台登录。请到「客户账号」或「酒店管理员账号」添加")
+        return fail("邮箱或密码不正确")
+    if not verify_password(password, account.password):
         return fail("邮箱或密码不正确")
     if account.role == "backend" and account.status != "active":
         return fail("账号待管理员审核" if account.status == "pending" else "账号未通过审核")

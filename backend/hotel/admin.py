@@ -1,5 +1,6 @@
 import json
 
+from django import forms
 from django.contrib import admin
 from django.utils.html import format_html
 
@@ -183,21 +184,49 @@ class GuestServiceChoiceAdmin(admin.ModelAdmin):
         return obj.guest.services_completed
 
 
+class AccountAdminForm(forms.ModelForm):
+    password = forms.CharField(
+        label="密码",
+        required=False,
+        widget=forms.PasswordInput(render_value=False),
+        help_text="前台登录密码。新建必填；修改时留空表示不改。不要在「后台用户」里改密码。",
+    )
+
+    class Meta:
+        fields = "__all__"
+
+
 class AccountRoleAdmin(admin.ModelAdmin):
     role = ""
+    form = AccountAdminForm
     list_display = ("email", "nickname")
     search_fields = ("email", "nickname")
     fields = ("email", "nickname", "password")
+
+    def get_form(self, request, obj=None, **kwargs):
+        form = super().get_form(request, obj, **kwargs)
+        form.base_fields["password"].required = obj is None
+        return form
 
     def get_queryset(self, request):
         return super().get_queryset(request).filter(role=self.role)
 
     def save_model(self, request, obj, form, change):
-        from .security import is_hashed, hash_password, sync_backend_user
+        from .security import hash_password, is_hashed, sync_backend_user
 
         obj.role = self.role
-        if obj.password and not is_hashed(obj.password):
-            obj.password = hash_password(obj.password)
+        obj.email = (obj.email or "").strip().lower()
+        raw = (form.cleaned_data.get("password") or "").strip()
+        if change:
+            previous = type(obj).objects.get(pk=obj.pk)
+            if raw:
+                obj.password = hash_password(raw)
+            else:
+                obj.password = previous.password
+        else:
+            obj.password = hash_password(raw)
+            if obj.role != "backend":
+                obj.status = "active"
         super().save_model(request, obj, form, change)
         if obj.role == "backend" or obj.is_owner:
             sync_backend_user(obj)

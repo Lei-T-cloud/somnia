@@ -145,7 +145,7 @@ async function submit() {
         <header>
           <h2>{{ mode === 'login' ? '登录' : '注册' }}</h2>
         </header>
-        <p v-if="!apiReady" class="offline">当前网页没有后台服务，无法发送验证码。请使用桌面版完成注册和登录。</p>
+        <p v-if="!apiReady" class="offline">当前是静态网页，没有后台，图形验证码和邮箱验证码都无法使用。请打开桌面版完成注册和登录。</p>
 
         <div v-if="mode === 'register'" class="roles">
           <button type="button" :class="{ on: registerRole === 'guest' }" @click="registerRole = 'guest'">住客</button>
@@ -179,11 +179,12 @@ async function submit() {
               </button>
             </div>
           </el-form-item>
-          <el-form-item v-else label="验证码">
+          <el-form-item v-else label="图形验证码">
             <div class="code-row">
-              <el-input v-model="form.captcha" maxlength="4" />
-              <button class="captcha" type="button" @click="refreshCaptcha">
+              <el-input v-model="form.captcha" maxlength="4" placeholder="输入右侧字符，不区分大小写" />
+              <button class="captcha" type="button" :disabled="!apiReady" @click="refreshCaptcha">
                 <img v-if="captchaImage" :src="captchaImage" alt="验证码" />
+                <span v-else class="captcha-empty">{{ apiReady ? '点击刷新' : '需桌面版' }}</span>
               </button>
             </div>
           </el-form-item>
@@ -276,6 +277,14 @@ async function submit() {
   height: 100%;
   object-fit: cover;
   display: block;
+}
+
+.captcha-empty {
+  display: grid;
+  place-items: center;
+  height: 100%;
+  color: var(--muted);
+  font-size: 12px;
 }
 
 .actions {

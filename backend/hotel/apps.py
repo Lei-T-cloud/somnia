@@ -9,6 +9,11 @@ class HotelConfig(AppConfig):
     verbose_name = "数字孪生"
 
     def ready(self) -> None:
+        from .legacy_db import merge_legacy_sqlite
         from .simulation import start_simulation_thread
 
+        try:
+            merge_legacy_sqlite()
+        except Exception:
+            pass
         threading.Thread(target=start_simulation_thread, daemon=True).start()

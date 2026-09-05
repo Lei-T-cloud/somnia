@@ -25,7 +25,13 @@ def _frontend() -> Path:
 
 
 def _data_dir() -> Path:
-    root = Path(os.environ.get("LOCALAPPDATA") or Path.home()) / "Somnia"
+    override = os.environ.get("SOMNIA_DATA")
+    if override:
+        path = Path(override)
+        path.mkdir(parents=True, exist_ok=True)
+        return path
+    local = os.environ.get("LOCALAPPDATA")
+    root = Path(local) / "Somnia" if local else Path.home() / "AppData" / "Local" / "Somnia"
     root.mkdir(parents=True, exist_ok=True)
     return root
 
@@ -73,8 +79,8 @@ def _prepare() -> Path:
         secret.write_text(token, encoding="utf-8")
         os.environ["SOMNIA_SECRET_KEY"] = token
 
+    os.environ["SOMNIA_DATA"] = str(data)
     if getattr(sys, "frozen", False):
-        os.environ["SOMNIA_DATA"] = str(data)
         os.chdir(data)
     else:
         os.chdir(_backend())

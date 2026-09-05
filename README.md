@@ -10,9 +10,14 @@
 powershell -ExecutionPolicy Bypass -File .\scripts\build-exe.ps1
 ```
 
-生成文件：`release\眠栖Somnia\眠栖Somnia.exe`。双击即可，首次启动会自动建库并初始化 12 间空房。
+生成文件：
 
-数据目录：`%LOCALAPPDATA%\Somnia`
+- 安装包：`release\眠栖Somnia安装包.exe`（发给别人用这个）
+- 免安装目录：`release\眠栖Somnia\眠栖Somnia.exe`
+
+安装包无需管理员权限，会装到当前用户目录并创建桌面快捷方式。首次启动会自动建库并初始化 12 间空房。
+
+数据目录（网页开发版与桌面版共用同一份库）：`%LOCALAPPDATA%\Somnia`
 
 请用可接收邮件的真实邮箱注册。登录需图形验证码，注册验证码会发到该邮箱。酒店员工注册后即可使用管理端；数据后台账号须主管理员在 SimpleUI 中同意。发信前请在数据后台「发信设置」填写邮箱 SMTP 授权码。
 

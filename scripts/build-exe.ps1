@@ -13,4 +13,4 @@ Write-Host "3/4 生成 Windows exe"
 & $py -m PyInstaller desktop\somnia.spec --noconfirm --distpath release --workpath release\build
 
 Write-Host "4/4 完成"
-Write-Host "可执行文件：release\眠栖Somnia.exe"
+Write-Host "可执行文件：release\眠栖Somnia\眠栖Somnia.exe"

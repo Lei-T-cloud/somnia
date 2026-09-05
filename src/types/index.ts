@@ -34,6 +34,7 @@ export interface SessionUser {
   email: string
   role: UserRole
   nickname: string
+  inviteCode?: string
 }
 
 export interface AccountRecord {

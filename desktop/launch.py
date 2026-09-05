@@ -2,6 +2,7 @@ import os
 import socket
 import sys
 import threading
+import traceback
 from pathlib import Path
 
 
@@ -23,34 +24,73 @@ def _frontend() -> Path:
     return _root() / "dist"
 
 
+def _data_dir() -> Path:
+    root = Path(os.environ.get("LOCALAPPDATA") or Path.home()) / "Somnia"
+    root.mkdir(parents=True, exist_ok=True)
+    return root
+
+
+def _attach_stdio(log_file: Path) -> None:
+    stream = open(log_file, "a", encoding="utf-8")
+    if sys.stdout is None:
+        sys.stdout = stream
+    if sys.stderr is None:
+        sys.stderr = stream
+
+
+def _alert(title: str, message: str) -> None:
+    try:
+        import ctypes
+
+        ctypes.windll.user32.MessageBoxW(None, message, title, 0x10)
+    except Exception:
+        print(message)
+
+
 def _free_port() -> int:
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
         sock.bind(("127.0.0.1", 0))
         return int(sock.getsockname()[1])
 
 
-def _prepare() -> None:
+def _prepare() -> Path:
+    data = _data_dir()
+    log_file = data / "startup.log"
+    _attach_stdio(log_file)
+    log_file.write_text("starting\n", encoding="utf-8")
+
     backend = _backend()
     if str(backend) not in sys.path:
         sys.path.insert(0, str(backend))
+
+    secret = data / "secret.key"
+    if secret.exists():
+        os.environ["SOMNIA_SECRET_KEY"] = secret.read_text(encoding="utf-8").strip()
+    else:
+        import secrets
+
+        token = secrets.token_urlsafe(48)
+        secret.write_text(token, encoding="utf-8")
+        os.environ["SOMNIA_SECRET_KEY"] = token
+
     if getattr(sys, "frozen", False):
-        data = Path(os.environ.get("LOCALAPPDATA") or Path.home()) / "Somnia"
-        data.mkdir(parents=True, exist_ok=True)
         os.environ["SOMNIA_DATA"] = str(data)
         os.chdir(data)
     else:
-        os.chdir(backend)
+        os.chdir(_backend())
+
     os.environ.setdefault("DJANGO_SETTINGS_MODULE", "config.settings")
     os.environ["SOMNIA_DESKTOP"] = "1"
     os.environ["SOMNIA_FRONTEND"] = str(_frontend())
+
     import django
-    from django.contrib.auth.models import User
     from django.core.management import call_command
 
     django.setup()
     call_command("migrate", interactive=False, verbosity=0)
-    if not User.objects.filter(username="admin").exists():
-        call_command("seed_demo", verbosity=0)
+    call_command("init_hotel", verbosity=0)
+    log_file.write_text("ready\n", encoding="utf-8")
+    return data
 
 
 def _serve(port: int) -> None:
@@ -61,21 +101,30 @@ def _serve(port: int) -> None:
 
 
 def main() -> None:
-    _prepare()
-    port = _free_port()
-    threading.Thread(target=_serve, args=(port,), daemon=True).start()
-    url = f"http://127.0.0.1:{port}/login"
     try:
-        import webview
+        _prepare()
+        port = _free_port()
+        threading.Thread(target=_serve, args=(port,), daemon=True).start()
+        url = f"http://127.0.0.1:{port}/login"
+        try:
+            import webview
 
-        webview.create_window("眠栖 Somnia", url, width=1440, height=900, min_size=(1100, 720))
-        webview.start()
+            webview.create_window("眠栖 Somnia", url, width=1440, height=900, min_size=(1100, 720))
+            webview.start()
+        except Exception:
+            import webbrowser
+
+            webbrowser.open(url)
+            print(f"眠栖已启动：{url}")
+            threading.Event().wait()
     except Exception:
-        import webbrowser
-
-        webbrowser.open(url)
-        print(f"眠栖已启动：{url}")
-        threading.Event().wait()
+        text = traceback.format_exc()
+        try:
+            (_data_dir() / "startup.log").write_text(text, encoding="utf-8")
+        except Exception:
+            pass
+        _alert("眠栖无法启动", text[-1200:])
+        raise
 
 
 if __name__ == "__main__":

@@ -27,15 +27,20 @@ export const useAuthStore = defineStore('auth', () => {
     else localStorage.removeItem(AUTH_KEY)
   }
 
-  function acceptSession(data: { token: string; email: string; role: UserRole; nickname: string }) {
+  function acceptSession(data: { token: string; email: string; role: UserRole; nickname: string; inviteCode?: string }) {
     localStorage.setItem(TOKEN_KEY, data.token)
-    user.value = { email: data.email, role: data.role, nickname: data.nickname }
+    user.value = {
+      email: data.email,
+      role: data.role,
+      nickname: data.nickname,
+      inviteCode: data.inviteCode,
+    }
     persistSession()
   }
 
-  async function login(email: string, password: string, expectedRole: UserRole): Promise<string | null> {
+  async function login(email: string, password: string): Promise<string | null> {
     try {
-      const { data } = await api.post('/auth/login', { email, password, role: expectedRole })
+      const { data } = await api.post('/auth/login', { email, password })
       acceptSession(data)
       return null
     } catch (error) {
@@ -43,13 +48,31 @@ export const useAuthStore = defineStore('auth', () => {
     }
   }
 
-  async function register(email: string, password: string, nickname: string): Promise<string | null> {
+  async function register(
+    email: string,
+    password: string,
+    nickname: string,
+    role: UserRole,
+    inviteCode = '',
+  ): Promise<string | null> {
     try {
-      const { data } = await api.post('/auth/register', { email, password, nickname })
+      const { data } = await api.post('/auth/register', { email, password, nickname, role, inviteCode })
       acceptSession(data)
       return null
     } catch (error) {
       return apiError(error, '注册失败')
+    }
+  }
+
+  async function refreshProfile() {
+    try {
+      const { data } = await api.get<SessionUser>('/auth/me')
+      if (user.value) {
+        user.value = { ...user.value, ...data }
+        persistSession()
+      }
+    } catch {
+      /* 保持本地会话 */
     }
   }
 
@@ -64,5 +87,5 @@ export const useAuthStore = defineStore('auth', () => {
     persistSession()
   }
 
-  return { user, isLoggedIn, role, login, register, logout }
+  return { user, isLoggedIn, role, login, register, refreshProfile, logout }
 })

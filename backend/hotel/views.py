@@ -13,6 +13,15 @@ from app.engine.sleep_scene import derive_sleep_portrait
 from .authz import current_account, require_manager
 from .intake import apply_preference, extract_preference, log_upload, mark_room_selected, mark_services_submitted, now_iso
 from .models import Account, Guest, GuestServiceChoice, HotelService, Room, SessionToken
+from .security import (
+    ensure_invite_code,
+    hash_password,
+    is_hashed,
+    provision_staff_user,
+    session_payload,
+    valid_email,
+    verify_password,
+)
 from .serializers import apply_room_dict, guest_to_dict, room_to_dict, service_to_dict
 from .services import apply_device_patch, bind_guest_to_room, build_overview, get_meta
 from .stays import checkout_guest
@@ -26,15 +35,15 @@ def fail(detail: str, status: int = 400) -> JsonResponse:
 def login(request: Request) -> JsonResponse:
     email = str(request.data.get("email") or "").strip().lower()
     password = str(request.data.get("password") or "")
-    role = str(request.data.get("role") or "")
     account = Account.objects.filter(email=email).first()
-    if not account or account.password != password:
+    if not account or not verify_password(password, account.password):
         return fail("邮箱或密码不正确")
-    if account.role != role:
-        return fail("请使用住客入口登录" if role == "guest" else "请使用管理入口登录")
+    if not is_hashed(account.password):
+        account.password = hash_password(password)
+        account.save(update_fields=["password"])
     token = secrets.token_hex(24)
     SessionToken.objects.create(token=token, email=account.email)
-    return JsonResponse({"token": token, "email": account.email, "role": account.role, "nickname": account.nickname})
+    return JsonResponse(session_payload(account, token))
 
 
 @api_view(["POST"])
@@ -42,21 +51,44 @@ def register(request: Request) -> JsonResponse:
     email = str(request.data.get("email") or "").strip().lower()
     password = str(request.data.get("password") or "")
     nickname = str(request.data.get("nickname") or "").strip()
-    if not email or not password or not nickname:
-        return fail("请完整填写注册信息")
+    role = str(request.data.get("role") or "guest").strip()
+    if role not in ("guest", "manager"):
+        return fail("请选择账号类型")
+    if not valid_email(email):
+        return fail("请输入有效邮箱")
+    if len(password) < 8:
+        return fail("密码至少 8 位")
+    if not nickname:
+        return fail("请填写姓名")
     if Account.objects.filter(email=email).exists():
         return fail("该邮箱已注册")
-    Account.objects.create(email=email, password=password, role="guest", nickname=nickname)
-    Guest.objects.get_or_create(email=email, defaults={"nickname": nickname})
+    if role == "manager" and Account.objects.filter(role="manager").exists():
+        code = str(request.data.get("inviteCode") or "").strip().upper()
+        if code != ensure_invite_code():
+            return fail("员工邀请码不正确")
+    account = Account.objects.create(
+        email=email,
+        password=hash_password(password),
+        role=role,
+        nickname=nickname,
+    )
+    if role == "guest":
+        Guest.objects.get_or_create(email=email, defaults={"nickname": nickname})
+    else:
+        provision_staff_user(email, password)
+        ensure_invite_code()
     token = secrets.token_hex(24)
     SessionToken.objects.create(token=token, email=email)
-    return JsonResponse({"token": token, "email": email, "role": "guest", "nickname": nickname})
+    return JsonResponse(session_payload(account, token))
 
 
 @api_view(["GET"])
 def me(request: Request) -> JsonResponse:
     account = current_account(request)
-    return JsonResponse({"email": account.email, "role": account.role, "nickname": account.nickname})
+    payload = {"email": account.email, "role": account.role, "nickname": account.nickname}
+    if account.role == "manager":
+        payload["inviteCode"] = ensure_invite_code()
+    return JsonResponse(payload)
 
 
 @api_view(["POST"])

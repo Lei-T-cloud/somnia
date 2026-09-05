@@ -2,7 +2,7 @@
 
 睡眠偏好采集 + 酒店数字孪生调控平台。服从仓库根目录 `CONSTITUTION.md`。
 
-## 桌面版（Windows exe）
+## 桌面版（Windows）
 
 在项目根目录执行：
 
@@ -10,20 +10,15 @@
 powershell -ExecutionPolicy Bypass -File .\scripts\build-exe.ps1
 ```
 
-生成文件：`release\眠栖Somnia.exe`。双击即可，首次启动会自动迁移并写入演示数据。
+生成文件：`release\眠栖Somnia\眠栖Somnia.exe`。双击即可，首次启动会自动建库并初始化 12 间空房。
 
-演示账号（密码均为 `somnia123`）：
+数据目录：`%LOCALAPPDATA%\Somnia`
 
-| 用途 | 账号 |
-| --- | --- |
-| 住客 | `guest@somnia.demo` |
-| 管理 | `manager@somnia.demo` |
-| SimpleUI | `admin` |
+请在登录页用邮箱自行注册。首位酒店员工可直接注册，之后加入的员工需要邀请码（管理端右上角可复制）。该员工邮箱也可登录 SimpleUI 数据后台。
 
 ## 网页版
 
-- 源码与 GitHub Pages 工作流已放在本仓库
-- Pages 只托管静态前台。登录、选房、三维调控等完整闭环请用 exe，或按下面本地启动前后端
+源码与 GitHub Pages 工作流在本仓库。Pages 只托管静态前台。登录、选房、三维调控等完整闭环请用 exe，或按下面本地启动前后端。
 
 ## 本地开发
 
@@ -33,7 +28,7 @@ powershell -ExecutionPolicy Bypass -File .\scripts\build-exe.ps1
 cd backend
 .\.venv\Scripts\python.exe -m pip install -r requirements.txt
 .\.venv\Scripts\python.exe manage.py migrate
-.\.venv\Scripts\python.exe manage.py seed_demo
+.\.venv\Scripts\python.exe manage.py init_hotel
 .\.venv\Scripts\python.exe manage.py runserver 127.0.0.1:8000
 ```
 

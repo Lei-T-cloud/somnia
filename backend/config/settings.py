@@ -26,8 +26,8 @@ BASE_DIR = _bundle_dir()
 DATA_DIR = _data_dir()
 DESKTOP = os.environ.get("SOMNIA_DESKTOP") == "1"
 
-SECRET_KEY = os.environ.get("SOMNIA_SECRET_KEY", "somnia-demo-simpleui")
-DEBUG = True
+SECRET_KEY = os.environ.get("SOMNIA_SECRET_KEY", "change-me-in-production")
+DEBUG = not DESKTOP
 ALLOWED_HOSTS = ["127.0.0.1", "localhost"]
 FRONTEND_DIR = Path(os.environ.get("SOMNIA_FRONTEND") or (BASE_DIR.parent / "dist" if not getattr(sys, "frozen", False) else BASE_DIR / "frontend"))
 

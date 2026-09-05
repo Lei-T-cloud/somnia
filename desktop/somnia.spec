@@ -13,6 +13,7 @@ datas = []
 binaries = []
 hiddenimports = collect_submodules("hotel") + collect_submodules("app") + collect_submodules("config")
 hiddenimports += [
+    "hotel.management.commands.init_hotel",
     "hotel.management.commands.seed_demo",
     "rest_framework",
     "corsheaders",
@@ -50,9 +51,8 @@ pyz = PYZ(a.pure)
 exe = EXE(
     pyz,
     a.scripts,
-    a.binaries,
-    a.datas,
     [],
+    exclude_binaries=True,
     name="眠栖Somnia",
     debug=False,
     bootloader_ignore_signals=False,
@@ -61,4 +61,12 @@ exe = EXE(
     console=False,
     disable_windowed_traceback=False,
     icon=None,
+)
+coll = COLLECT(
+    exe,
+    a.binaries,
+    a.datas,
+    strip=False,
+    upx=False,
+    name="眠栖Somnia",
 )

@@ -5,7 +5,7 @@ from django.db import models
 
 class Account(models.Model):
     email = models.CharField("邮箱", max_length=120, primary_key=True)
-    password = models.CharField("密码", max_length=120)
+    password = models.CharField("密码", max_length=128)
     role = models.CharField("角色", max_length=20, choices=[("guest", "住客"), ("manager", "管理员")])
     nickname = models.CharField("昵称", max_length=80)
 
@@ -242,6 +242,7 @@ class HotelMeta(models.Model):
     id = models.IntegerField(primary_key=True, default=1)
     simulating = models.BooleanField("仿真运行中", default=True)
     trend_json = models.TextField("趋势 JSON", default="[]")
+    staff_invite_code = models.CharField("员工邀请码", max_length=16, blank=True, default="")
 
     class Meta:
         verbose_name = "仿真状态"

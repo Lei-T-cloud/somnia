@@ -73,7 +73,7 @@ def home() -> str:
     <h1>这是 API 服务，不是前端页面</h1>
     <p>界面请打开前端：<a href="http://127.0.0.1:5174/">http://127.0.0.1:5174/</a>（若 5173 可用则用 5173）</p>
     <p>接口文档：<a href="/docs">/docs</a>　·　健康检查：<a href="/api/health">/api/health</a></p>
-    <p>演示账号 <code>guest@somnia.demo</code> / <code>manager@somnia.demo</code>，密码 <code>somnia123</code></p>
+    <p>请通过前台页面注册或登录后使用。</p>
   </main>
 </body>
 </html>"""

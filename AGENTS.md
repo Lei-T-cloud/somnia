@@ -8,7 +8,7 @@
 
 ## 这是什么
 
-比赛演示平台，不是真实物联网系统。要讲清的闭环：
+酒店睡眠环境平台，不是真实物联网系统。要讲清的闭环：
 
 **偏好采集 → 场景决策 → 环境执行 → 状态反馈**
 
@@ -100,8 +100,8 @@ backend/                 Django 后台
 
 | 方法 | 路径 | 说明 |
 | --- | --- | --- |
-| POST | `/auth/login` | `{ email, password, role }` |
-| POST | `/auth/register` | 仅住客 |
+| POST | `/auth/login` | `{ email, password }` |
+| POST | `/auth/register` | `{ email, password, nickname, role, inviteCode? }` 住客或酒店员工 |
 | GET | `/auth/me` | |
 | POST | `/auth/logout` | |
 | GET | `/guests` | |
@@ -127,13 +127,12 @@ backend/                 Django 后台
 
 ## 账号
 
-| 用途 | 账号 | 密码 |
-| --- | --- | --- |
-| 前台住客 | `guest@somnia.demo` | `somnia123` |
-| 前台管理 | `manager@somnia.demo` | `somnia123` |
-| SimpleUI | `admin` | `somnia123` |
+不预置演示账号。住客与酒店员工都通过 `/login` 用邮箱自行注册。
 
-种子命令：`backend/.venv/Scripts/python.exe manage.py seed_demo`
+- 住客：姓名 + 邮箱 + 密码（至少 8 位）
+- 酒店员工：首位可直接注册；之后需管理端右上角「邀请码」
+- SimpleUI：首位员工的邮箱即后台用户名，密码与注册时相同
+- 初始化：`backend/.venv/Scripts/python.exe manage.py init_hotel`
 
 ---
 
@@ -143,7 +142,7 @@ backend/                 Django 后台
 cd backend
 .\.venv\Scripts\python.exe -m pip install -r requirements.txt
 .\.venv\Scripts\python.exe manage.py migrate
-.\.venv\Scripts\python.exe manage.py seed_demo
+.\.venv\Scripts\python.exe manage.py init_hotel
 .\.venv\Scripts\python.exe manage.py runserver 127.0.0.1:8000
 ```
 
@@ -162,9 +161,9 @@ npm run dev
 - 智能决策用可解释规则引擎，首期不接大模型。
 - 仿真器逐步逼近目标温度/湿度；文案写「环境仿真」，不写真实传感器/摄像头。
 - 三维继续用程序化几何；`gltf` 只预留，不作为依赖。
-- 中文 UI。比赛可演示优先于工程完备。
+- 中文 UI。正式注册登录，不预置演示账号。
 - **首期不做**：真实支付、OTA 预订、工单、真实 MQTT、多酒店集团权限、原生 App。
 - 不要更新 git config，不要在未要求时 commit / push。
 - 不要编辑用户的 plan 文件。
 
-演示叙事保持一句：住客填偏好并选房/服务 → 生成睡眠场景 → 管理员在三维酒店中看见并一键适配/微调。
+产品叙事保持一句：住客填偏好并选房/服务 → 生成睡眠场景 → 管理员在三维酒店中看见并一键适配/微调。

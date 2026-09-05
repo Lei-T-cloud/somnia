@@ -73,6 +73,11 @@ const router = createRouter({
           name: 'manager-requests',
           component: () => import('@/views/manager/ManagerRequestsView.vue'),
         },
+        {
+          path: 'mail',
+          name: 'manager-mail',
+          component: () => import('@/views/manager/ManagerMailView.vue'),
+        },
       ],
     },
     {

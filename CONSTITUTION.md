@@ -74,6 +74,7 @@ GuestPreference → SleepSceneEngine → HotelDigitalTwin ⇄ EnvSimulator
 - `/manager/rooms`：房间实景图更新
 - `/manager/requests`：用户需求（未完成 / 已完成，按房间点开查看）
 - `/admin/`：SimpleUI 数据后台
+- `/manager/mail`：主管理员发信设置（邮箱验证码）
 - 运维页房间详情不做独立整页，落在指挥舱右侧面板
 
 酒店规模固化：1 栋 3 层、每层 4 间（共 12 间），初始为空房。

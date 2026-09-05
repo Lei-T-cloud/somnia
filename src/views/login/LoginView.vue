@@ -2,6 +2,7 @@
 import { onMounted, reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
+import { api } from '@/api/client'
 import { useAuthStore } from '@/stores/auth'
 import type { UserRole } from '@/types'
 
@@ -15,6 +16,7 @@ const sending = ref(false)
 const countdown = ref(0)
 const captchaImage = ref('')
 const captchaId = ref('')
+const apiReady = ref(true)
 const form = reactive({
   email: '',
   password: '',
@@ -24,7 +26,15 @@ const form = reactive({
   emailCode: '',
 })
 
-onMounted(refreshCaptcha)
+onMounted(async () => {
+  try {
+    await api.get('/health')
+    apiReady.value = true
+    await refreshCaptcha()
+  } catch {
+    apiReady.value = false
+  }
+})
 
 async function refreshCaptcha() {
   try {
@@ -135,6 +145,7 @@ async function submit() {
         <header>
           <h2>{{ mode === 'login' ? '登录' : '注册' }}</h2>
         </header>
+        <p v-if="!apiReady" class="offline">当前网页没有后台服务，无法发送验证码。请使用桌面版完成注册和登录。</p>
 
         <div v-if="mode === 'register'" class="roles">
           <button type="button" :class="{ on: registerRole === 'guest' }" @click="registerRole = 'guest'">住客</button>
@@ -163,7 +174,7 @@ async function submit() {
           <el-form-item v-if="mode === 'register'" label="邮箱验证码">
             <div class="code-row">
               <el-input v-model="form.emailCode" maxlength="6" />
-              <button class="ghost-btn" type="button" :disabled="sending || countdown > 0" @click="sendCode">
+              <button class="ghost-btn" type="button" :disabled="!apiReady || sending || countdown > 0" @click="sendCode">
                 {{ countdown > 0 ? `${countdown}s` : '发送验证码' }}
               </button>
             </div>
@@ -177,7 +188,7 @@ async function submit() {
             </div>
           </el-form-item>
           <div class="actions">
-            <button class="gold-btn" type="submit" :disabled="loading">
+            <button class="gold-btn" type="submit" :disabled="loading || !apiReady">
               {{ mode === 'register' ? (registerRole === 'backend' ? '提交申请' : '注册') : '登录' }}
             </button>
             <button class="ghost-btn" type="button" @click="switchMode(mode === 'login' ? 'register' : 'login')">
@@ -275,5 +286,11 @@ async function submit() {
 
 .gold-btn {
   min-width: 120px;
+}
+
+.offline {
+  margin: 0 0 16px;
+  color: var(--muted);
+  font-size: 13px;
 }
 </style>

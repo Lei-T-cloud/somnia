@@ -45,6 +45,10 @@ def _meta() -> HotelMeta:
     return meta
 
 
+def send_notice(to: str, subject: str, body: str) -> None:
+    _send_mail(to, subject, body)
+
+
 def send_email_code(email: str, purpose: str) -> None:
     now = timezone.now()
     recent = VerifyCode.objects.filter(email=email, purpose=purpose, created_at__gte=now - timedelta(seconds=60)).exists()
@@ -91,34 +95,63 @@ def consume_captcha(challenge_id: str, raw: str) -> bool:
     return row.code.lower() == (raw or "").strip().lower()
 
 
+def smtp_preset(email: str) -> tuple[str, int, bool]:
+    domain = (email or "").rsplit("@", 1)[-1].lower()
+    mapping = {
+        "qq.com": ("smtp.qq.com", 465, True),
+        "vip.qq.com": ("smtp.qq.com", 465, True),
+        "foxmail.com": ("smtp.qq.com", 465, True),
+        "163.com": ("smtp.163.com", 465, True),
+        "126.com": ("smtp.126.com", 465, True),
+        "yeah.net": ("smtp.yeah.net", 465, True),
+        "gmail.com": ("smtp.gmail.com", 465, True),
+        "outlook.com": ("smtp.office365.com", 587, False),
+        "hotmail.com": ("smtp.office365.com", 587, False),
+        "live.com": ("smtp.office365.com", 587, False),
+    }
+    return mapping.get(domain, ("smtp.qq.com", 465, True))
+
+
 def _send_mail(to: str, subject: str, body: str) -> None:
     import os
     import smtplib
+    from email.header import Header
     from email.mime.text import MIMEText
+    from email.utils import formataddr
 
     meta = _meta()
-    host = os.environ.get("SOMNIA_SMTP_HOST") or meta.smtp_host or "smtp.qq.com"
-    port = int(os.environ.get("SOMNIA_SMTP_PORT") or meta.smtp_port or 465)
-    user = os.environ.get("SOMNIA_SMTP_USER") or meta.smtp_user
-    password = os.environ.get("SOMNIA_SMTP_PASSWORD") or meta.smtp_password
-    use_ssl = str(os.environ.get("SOMNIA_SMTP_SSL") or meta.smtp_use_ssl).lower() not in {"0", "false", "False"}
+    user = (os.environ.get("SOMNIA_SMTP_USER") or meta.smtp_user or "").strip()
+    password = (os.environ.get("SOMNIA_SMTP_PASSWORD") or meta.smtp_password or "").strip()
     if not user or not password:
-        raise ValueError("尚未配置发信邮箱，请先在数据后台填写发信授权码")
+        raise ValueError("尚未配置发信授权码，主管理员请先在「发信设置」里填写 QQ/邮箱 SMTP 授权码")
+    host = os.environ.get("SOMNIA_SMTP_HOST") or meta.smtp_host
+    port = int(os.environ.get("SOMNIA_SMTP_PORT") or meta.smtp_port or 0)
+    if not host or not port:
+        host, port, use_ssl = smtp_preset(user)
+    else:
+        use_ssl = str(os.environ.get("SOMNIA_SMTP_SSL") or meta.smtp_use_ssl).lower() not in {"0", "false", "False"}
     message = MIMEText(body, "plain", "utf-8")
-    message["Subject"] = subject
-    message["From"] = user
+    message["Subject"] = Header(subject, "utf-8")
+    message["From"] = formataddr(("眠栖 Somnia", user))
     message["To"] = to
-    try:
-        if use_ssl:
-            client = smtplib.SMTP_SSL(host, port, timeout=15)
-        else:
-            client = smtplib.SMTP(host, port, timeout=15)
-            client.starttls()
-        with client:
-            client.login(user, password)
-            client.sendmail(user, [to], message.as_string())
-    except Exception as exc:
-        raise ValueError("验证码发送失败，请确认邮箱可接收邮件") from exc
+    attempts = [(host, port, use_ssl)]
+    if use_ssl and port == 465:
+        attempts.append((host, 587, False))
+    last_error = None
+    for next_host, next_port, next_ssl in attempts:
+        try:
+            if next_ssl:
+                client = smtplib.SMTP_SSL(next_host, next_port, timeout=15)
+            else:
+                client = smtplib.SMTP(next_host, next_port, timeout=15)
+                client.starttls()
+            with client:
+                client.login(user, password)
+                client.sendmail(user, [to], message.as_string())
+            return
+        except Exception as exc:
+            last_error = exc
+    raise ValueError("验证码发送失败，请检查发信授权码是否正确") from last_error
 
 
 def _render_captcha(text: str) -> bytes:

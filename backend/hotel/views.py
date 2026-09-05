@@ -21,7 +21,7 @@ from .security import (
     valid_email,
     verify_password,
 )
-from .verify import consume_captcha, consume_email_code, create_captcha, is_real_email, send_email_code
+from .verify import consume_captcha, consume_email_code, create_captcha, is_real_email, send_email_code, send_notice, smtp_preset
 from .serializers import apply_room_dict, guest_to_dict, room_to_dict, service_to_dict
 from .services import apply_device_patch, bind_guest_to_room, build_overview, get_meta
 from .stays import checkout_guest
@@ -448,3 +448,49 @@ def set_simulation(request: Request) -> JsonResponse:
     meta.simulating = bool(request.data.get("running"))
     meta.save(update_fields=["simulating"])
     return JsonResponse({"running": meta.simulating})
+
+
+def mail_to_dict(meta) -> dict:
+    return {
+        "host": meta.smtp_host,
+        "port": meta.smtp_port,
+        "user": meta.smtp_user,
+        "hasPassword": bool(meta.smtp_password),
+        "useSsl": meta.smtp_use_ssl,
+    }
+
+
+@api_view(["GET", "PUT"])
+def mail_settings(request: Request) -> JsonResponse:
+    account = require_owner(request)
+    meta = get_meta()
+    if request.method == "GET":
+        return JsonResponse(mail_to_dict(meta))
+    user = str(request.data.get("user") or "").strip()
+    password = str(request.data.get("password") or "").strip()
+    if user and (not valid_email(user) or not is_real_email(user)):
+        return fail("请填写真实发信邮箱")
+    host = str(request.data.get("host") or "").strip()
+    port = request.data.get("port")
+    if user and not host:
+        host, default_port, use_ssl = smtp_preset(user)
+        meta.smtp_use_ssl = use_ssl
+        if not port:
+            port = default_port
+    if host:
+        meta.smtp_host = host
+    if port not in (None, ""):
+        meta.smtp_port = int(port)
+    if user:
+        meta.smtp_user = user
+    if password:
+        meta.smtp_password = password
+    if "useSsl" in request.data:
+        meta.smtp_use_ssl = bool(request.data.get("useSsl"))
+    meta.save()
+    if request.data.get("test"):
+        try:
+            send_notice(account.email, "眠栖发信测试", "发信设置已可用，之后注册验证码将由此邮箱发出。")
+        except ValueError as exc:
+            return fail(str(exc))
+    return JsonResponse(mail_to_dict(meta))

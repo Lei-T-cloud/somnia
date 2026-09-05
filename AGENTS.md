@@ -123,6 +123,7 @@ backend/                 Django 后台
 | GET | `/hotel/service-requests` | 管理员：按房间的服务需求（含完成状态） |
 | POST | `/hotel/service-requests/{roomId}/complete` | `{ completed }` 标记该房服务完成与否 |
 | POST | `/hotel/simulation` | `{ running }` |
+| GET/PUT | `/hotel/mail` | 主管理员发信设置，`test` 可试发 |
 | GET | `/health` | |
 
 角色字段只有 `guest | manager | backend`。前端路由与后端都要校验。

@@ -27,4 +27,5 @@ urlpatterns = [
     path("hotel/simulation", views.set_simulation),
     path("hotel/staff", views.list_staff),
     path("hotel/staff/<str:email>/review", views.review_staff),
+    path("hotel/mail", views.mail_settings),
 ]

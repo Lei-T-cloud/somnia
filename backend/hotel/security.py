@@ -52,9 +52,9 @@ def sync_backend_user(account: Account) -> None:
         user = User(username=account.email, email=account.email)
     user.email = account.email
     user.password = account.password
-    user.is_staff = account.role == "manager" and account.status == "active"
+    user.is_staff = account.is_owner or (account.role == "backend" and account.status == "active")
     user.is_superuser = account.is_owner and account.status == "active"
-    user.is_active = account.status == "active"
+    user.is_active = account.status == "active" if account.role == "backend" else True
     user.save()
 
 
@@ -72,4 +72,11 @@ def ensure_owner(email: str, nickname: str, password: str) -> Account:
     )
     Account.objects.exclude(email=email).filter(is_owner=True).update(is_owner=False)
     sync_backend_user(account)
+    from .models import HotelMeta
+
+    meta, _ = HotelMeta.objects.get_or_create(id=1, defaults={"simulating": True, "trend_json": "[]"})
+    if not meta.smtp_user:
+        meta.smtp_user = email
+        meta.smtp_host = meta.smtp_host or "smtp.qq.com"
+        meta.save(update_fields=["smtp_user", "smtp_host"])
     return account

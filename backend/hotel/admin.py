@@ -3,7 +3,7 @@ import json
 from django.contrib import admin
 from django.utils.html import format_html
 
-from .models import Guest, GuestAccount, GuestServiceChoice, GuestStay, GuestUpload, HotelMeta, HotelService, ManagerAccount, Room, SleepPreferenceRecord
+from .models import BackendAccount, Guest, GuestAccount, GuestServiceChoice, GuestStay, GuestUpload, HotelMeta, HotelService, ManagerAccount, Room, SleepPreferenceRecord
 from .stays import check_in, checkout_guest
 
 
@@ -199,7 +199,7 @@ class AccountRoleAdmin(admin.ModelAdmin):
         if obj.password and not is_hashed(obj.password):
             obj.password = hash_password(obj.password)
         super().save_model(request, obj, form, change)
-        if obj.role == "manager":
+        if obj.role == "backend" or obj.is_owner:
             sync_backend_user(obj)
 
 
@@ -215,26 +215,33 @@ class GuestAccountAdmin(AccountRoleAdmin):
 @admin.register(ManagerAccount)
 class ManagerAccountAdmin(AccountRoleAdmin):
     role = "manager"
-    list_display = ("email", "nickname", "status", "is_owner")
-    list_filter = ("status", "is_owner")
-    fields = ("email", "nickname", "password", "status", "is_owner")
-    actions = ["approve_staff", "reject_staff"]
+    list_display = ("email", "nickname", "is_owner")
+    fields = ("email", "nickname", "password", "is_owner")
 
-    @admin.action(description="通过并允许进入管理端")
-    def approve_staff(self, request, queryset):
+
+@admin.register(BackendAccount)
+class BackendAccountAdmin(AccountRoleAdmin):
+    role = "backend"
+    list_display = ("email", "nickname", "status")
+    list_filter = ("status",)
+    fields = ("email", "nickname", "password", "status")
+    actions = ["approve_backend", "reject_backend"]
+
+    @admin.action(description="同意进入数据后台")
+    def approve_backend(self, request, queryset):
         from .security import sync_backend_user
 
-        for account in queryset.exclude(is_owner=True):
+        for account in queryset:
             account.status = "active"
             account.save(update_fields=["status"])
             sync_backend_user(account)
 
-    @admin.action(description="拒绝进入管理端")
-    def reject_staff(self, request, queryset):
+    @admin.action(description="拒绝进入数据后台")
+    def reject_backend(self, request, queryset):
         from .models import SessionToken
         from .security import sync_backend_user
 
-        for account in queryset.exclude(is_owner=True):
+        for account in queryset:
             account.status = "rejected"
             account.save(update_fields=["status"])
             SessionToken.objects.filter(email=account.email).delete()
@@ -243,7 +250,8 @@ class ManagerAccountAdmin(AccountRoleAdmin):
 
 @admin.register(HotelMeta)
 class HotelMetaAdmin(admin.ModelAdmin):
-    list_display = ("id", "simulating")
+    list_display = ("id", "simulating", "smtp_user")
+    fields = ("simulating", "smtp_host", "smtp_port", "smtp_user", "smtp_password", "smtp_use_ssl")
 
 
 def _pretty_json(raw: str | None):

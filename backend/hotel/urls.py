@@ -3,6 +3,8 @@ from django.urls import path
 from . import views
 
 urlpatterns = [
+    path("auth/captcha", views.captcha),
+    path("auth/email-code", views.send_code),
     path("auth/login", views.login),
     path("auth/register", views.register),
     path("auth/me", views.me),

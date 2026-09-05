@@ -139,6 +139,8 @@ SIMPLEUI_CONFIG = {
             "models": [
                 {"name": "客户账号", "icon": "fas fa-user", "url": "/admin/hotel/guestaccount/"},
                 {"name": "酒店管理员账号", "icon": "fas fa-user-tie", "url": "/admin/hotel/manageraccount/"},
+                {"name": "数据后台账号", "icon": "fas fa-user-shield", "url": "/admin/hotel/backendaccount/"},
+                {"name": "发信设置", "icon": "fas fa-envelope", "url": "/admin/hotel/hotelmeta/"},
             ],
         },
         {

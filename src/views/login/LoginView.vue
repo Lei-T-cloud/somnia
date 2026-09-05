@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { reactive, ref } from 'vue'
+import { onMounted, reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { useAuthStore } from '@/stores/auth'
@@ -11,15 +11,30 @@ const auth = useAuthStore()
 const mode = ref<'login' | 'register'>('login')
 const registerRole = ref<UserRole>('guest')
 const loading = ref(false)
+const sending = ref(false)
+const countdown = ref(0)
+const captchaImage = ref('')
+const captchaId = ref('')
 const form = reactive({
   email: '',
   password: '',
   confirm: '',
   nickname: '',
+  captcha: '',
+  emailCode: '',
 })
 
-function homeOf(role: UserRole) {
-  return role === 'manager' ? '/manager/twin' : '/guest/preference'
+onMounted(refreshCaptcha)
+
+async function refreshCaptcha() {
+  try {
+    const data = await auth.fetchCaptcha()
+    captchaId.value = data.captchaId
+    captchaImage.value = data.image
+    form.captcha = ''
+  } catch {
+    ElMessage.error('验证码加载失败')
+  }
 }
 
 function resetForm() {
@@ -27,11 +42,35 @@ function resetForm() {
   form.password = ''
   form.confirm = ''
   form.nickname = ''
+  form.captcha = ''
+  form.emailCode = ''
 }
 
 function switchMode(next: 'login' | 'register') {
   mode.value = next
   resetForm()
+  if (next === 'login') refreshCaptcha()
+}
+
+async function sendCode() {
+  const email = form.email.trim().toLowerCase()
+  if (!email) {
+    ElMessage.error('请先填写邮箱')
+    return
+  }
+  sending.value = true
+  const error = await auth.sendEmailCode(email, 'register')
+  sending.value = false
+  if (error) {
+    ElMessage.error(error)
+    return
+  }
+  ElMessage.success('验证码已发送，请查收邮箱')
+  countdown.value = 60
+  const timer = window.setInterval(() => {
+    countdown.value -= 1
+    if (countdown.value <= 0) window.clearInterval(timer)
+  }, 1000)
 }
 
 async function submit() {
@@ -39,6 +78,10 @@ async function submit() {
   const password = form.password
   if (!email || !password) {
     ElMessage.error('请填写邮箱和密码')
+    return
+  }
+  if (mode.value === 'login' && !form.captcha.trim()) {
+    ElMessage.error('请填写验证码')
     return
   }
   if (mode.value === 'register') {
@@ -54,74 +97,57 @@ async function submit() {
       ElMessage.error('两次输入的密码不一致')
       return
     }
+    if (!form.emailCode.trim()) {
+      ElMessage.error('请填写邮箱验证码')
+      return
+    }
   }
 
   loading.value = true
   const result =
     mode.value === 'register'
-      ? await auth.register(email, password, form.nickname.trim(), registerRole.value)
-      : await auth.login(email, password)
+      ? await auth.register(email, password, form.nickname.trim(), registerRole.value, form.emailCode.trim())
+      : await auth.login(email, password, captchaId.value, form.captcha.trim())
   loading.value = false
   if (result === 'pending') {
-    ElMessage.success('已提交，等待主管理员同意后才能登录管理端')
+    ElMessage.success('已提交，等待同意后才能进入数据后台')
     switchMode('login')
     return
   }
   if (result) {
     ElMessage.error(result)
+    if (mode.value === 'login') refreshCaptcha()
     return
   }
-  const role = auth.role
-  if (!role) {
-    ElMessage.error('登录状态异常，请重试')
-    return
-  }
-  ElMessage.success(role === 'manager' ? '欢迎回来' : '登录成功')
-  router.push(homeOf(role))
+  const next = auth.enterHome()
+  if (next) router.push(next)
 }
 </script>
 
 <template>
   <main class="login">
-    <section class="showcase">
-      <div class="brand-mark">
-        <i class="logo-orb" />
-        <strong>眠栖 Somnia</strong>
-      </div>
-      <div class="copy">
-        <p class="eyebrow">睡眠经济 · 可配置客房</p>
-        <h1>把客房变成可配置的睡眠环境产品</h1>
-        <p>住客提交睡眠偏好，规则引擎生成睡眠场景；酒店在三维数字孪生中感知环境并执行调控。</p>
-      </div>
-      <ol>
-        <li><b>01</b>偏好采集</li>
-        <li><b>02</b>场景决策</li>
-        <li><b>03</b>环境执行</li>
-        <li><b>04</b>状态反馈</li>
-      </ol>
-      <footer>
-        <span>环境数据来自环境仿真</span>
-      </footer>
-    </section>
-
     <section class="access">
       <div class="card">
+        <div class="brand-mark">
+          <i class="logo-orb" />
+          <strong>眠栖 Somnia</strong>
+        </div>
         <header>
-          <h2>{{ mode === 'login' ? '登录' : '创建账号' }}</h2>
-          <p>{{ mode === 'login' ? '使用邮箱和密码进入眠栖' : registerRole === 'manager' ? '酒店员工注册后须主管理员同意才能进入' : '选择身份后填写资料，即可开始使用' }}</p>
+          <h2>{{ mode === 'login' ? '登录' : '注册' }}</h2>
         </header>
 
         <div v-if="mode === 'register'" class="roles">
           <button type="button" :class="{ on: registerRole === 'guest' }" @click="registerRole = 'guest'">住客</button>
           <button type="button" :class="{ on: registerRole === 'manager' }" @click="registerRole = 'manager'">酒店员工</button>
+          <button type="button" :class="{ on: registerRole === 'backend' }" @click="registerRole = 'backend'">数据后台</button>
         </div>
 
         <el-form label-position="top" @submit.prevent="submit">
           <el-form-item v-if="mode === 'register'" label="姓名">
-            <el-input v-model="form.nickname" autocomplete="name" placeholder="怎么称呼您" />
+            <el-input v-model="form.nickname" autocomplete="name" />
           </el-form-item>
           <el-form-item label="邮箱">
-            <el-input v-model="form.email" autocomplete="username" placeholder="name@example.com" />
+            <el-input v-model="form.email" autocomplete="username" placeholder="请输入常用邮箱" />
           </el-form-item>
           <el-form-item label="密码">
             <el-input
@@ -129,22 +155,36 @@ async function submit() {
               type="password"
               show-password
               :autocomplete="mode === 'register' ? 'new-password' : 'current-password'"
-              :placeholder="mode === 'register' ? '至少 8 位' : '请输入密码'"
             />
           </el-form-item>
           <el-form-item v-if="mode === 'register'" label="确认密码">
-            <el-input v-model="form.confirm" type="password" show-password autocomplete="new-password" placeholder="再输入一次密码" />
+            <el-input v-model="form.confirm" type="password" show-password autocomplete="new-password" />
+          </el-form-item>
+          <el-form-item v-if="mode === 'register'" label="邮箱验证码">
+            <div class="code-row">
+              <el-input v-model="form.emailCode" maxlength="6" />
+              <button class="ghost-btn" type="button" :disabled="sending || countdown > 0" @click="sendCode">
+                {{ countdown > 0 ? `${countdown}s` : '发送验证码' }}
+              </button>
+            </div>
+          </el-form-item>
+          <el-form-item v-else label="验证码">
+            <div class="code-row">
+              <el-input v-model="form.captcha" maxlength="4" />
+              <button class="captcha" type="button" @click="refreshCaptcha">
+                <img v-if="captchaImage" :src="captchaImage" alt="验证码" />
+              </button>
+            </div>
           </el-form-item>
           <div class="actions">
             <button class="gold-btn" type="submit" :disabled="loading">
-              {{ mode === 'register' ? (registerRole === 'manager' ? '提交审核' : '注册并进入') : '登录' }}
+              {{ mode === 'register' ? (registerRole === 'backend' ? '提交申请' : '注册') : '登录' }}
             </button>
             <button class="ghost-btn" type="button" @click="switchMode(mode === 'login' ? 'register' : 'login')">
-              {{ mode === 'login' ? '没有账号？注册' : '已有账号？去登录' }}
+              {{ mode === 'login' ? '注册账号' : '返回登录' }}
             </button>
           </div>
         </el-form>
-        <p class="hint">忘记密码时，请联系酒店工作人员在数据后台重置。</p>
       </div>
     </section>
   </main>
@@ -154,105 +194,35 @@ async function submit() {
 .login {
   min-height: 100vh;
   display: grid;
-  grid-template-columns: 1.05fr 0.95fr;
+  place-items: center;
   background:
-    linear-gradient(90deg, rgba(9, 9, 11, 0.72) 0%, rgba(9, 9, 11, 0.38) 48%, rgba(9, 9, 11, 0.62) 100%),
+    linear-gradient(90deg, rgba(9, 9, 11, 0.66) 0%, rgba(9, 9, 11, 0.5) 100%),
     url("/login-bg.jpg") center / cover no-repeat;
 }
 
-.showcase {
-  padding: 36px 48px 32px;
-  display: flex;
-  flex-direction: column;
-  border-right: 1px solid transparent;
-  background: transparent;
-}
-
-.copy {
-  margin: auto 0;
-  max-width: 520px;
-}
-
-.eyebrow {
-  margin: 0 0 12px;
-  color: var(--cyan);
-  font-size: 12px;
-  letter-spacing: 0.08em;
-}
-
-h1 {
-  margin: 0 0 14px;
-  font-size: clamp(32px, 4vw, 46px);
-  line-height: 1.15;
-  letter-spacing: -0.035em;
-  font-weight: 650;
-}
-
-.copy p:last-of-type {
-  margin: 0;
-  color: var(--muted);
-  font-size: 15px;
-}
-
-ol {
-  list-style: none;
-  margin: 0 0 28px;
-  padding: 0;
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 10px;
-}
-
-ol li {
-  display: flex;
-  gap: 10px;
-  align-items: center;
-  color: var(--muted);
-  font-size: 14px;
-}
-
-ol b {
-  color: var(--text);
-  font-size: 12px;
-  font-variant-numeric: tabular-nums;
-}
-
-footer {
-  color: #71717a;
-  font-size: 12px;
-}
-
-.access {
-  display: grid;
-  place-items: center;
-  padding: 32px 24px;
-}
-
 .card {
-  width: min(440px, 100%);
+  width: min(420px, calc(100vw - 32px));
   padding: 28px;
   border: 1px solid rgba(255, 255, 255, 0.12);
   border-radius: 16px;
-  background: rgba(17, 17, 19, 0.78);
+  background: rgba(17, 17, 19, 0.82);
   backdrop-filter: blur(16px);
   box-shadow: var(--shadow);
 }
 
+.brand-mark {
+  margin-bottom: 18px;
+}
+
 .card header h2 {
-  margin: 0 0 6px;
+  margin: 0 0 18px;
   font-size: 22px;
   letter-spacing: -0.03em;
 }
 
-.card header p {
-  margin: 0 0 22px;
-  color: var(--muted);
-  font-size: 13px;
-}
-
 .roles {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: 1fr 1fr 1fr;
   gap: 8px;
   margin-bottom: 16px;
 }
@@ -262,7 +232,7 @@ footer {
   background: #09090b;
   color: var(--muted);
   border-radius: 10px;
-  padding: 10px 12px;
+  padding: 10px 8px;
   cursor: pointer;
 }
 
@@ -270,6 +240,31 @@ footer {
   border-color: var(--line-strong);
   color: var(--text);
   background: var(--bg-hover);
+}
+
+.code-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 8px;
+  width: 100%;
+}
+
+.captcha {
+  width: 140px;
+  height: 40px;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #09090b;
+  cursor: pointer;
+  overflow: hidden;
+}
+
+.captcha img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
 }
 
 .actions {
@@ -280,23 +275,5 @@ footer {
 
 .gold-btn {
   min-width: 120px;
-}
-
-.hint {
-  margin: 16px 0 0;
-  color: #71717a;
-  font-size: 12px;
-}
-
-@media (max-width: 980px) {
-  .login {
-    grid-template-columns: 1fr;
-  }
-
-  .showcase {
-    min-height: auto;
-    border-right: 0;
-    border-bottom: 1px solid var(--line);
-  }
 }
 </style>

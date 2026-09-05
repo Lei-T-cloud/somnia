@@ -15,7 +15,7 @@ def current_account(request: Request) -> Account:
     account = Account.objects.filter(email=row.email).first()
     if not account:
         raise AuthenticationFailed("账号不存在")
-    if account.role == "manager" and account.status != "active":
+    if account.role == "backend" and account.status != "active":
         SessionToken.objects.filter(token=token).delete()
         raise AuthenticationFailed("账号待管理员审核" if account.status == "pending" else "账号未通过审核")
     return account
@@ -31,5 +31,5 @@ def require_manager(request: Request) -> Account:
 def require_owner(request: Request) -> Account:
     account = require_manager(request)
     if not account.is_owner:
-        raise PermissionDenied("只有主管理员可以审核员工")
+        raise PermissionDenied("只有主管理员可以审核数据后台账号")
     return account

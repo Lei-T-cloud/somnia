@@ -14,7 +14,7 @@ powershell -ExecutionPolicy Bypass -File .\scripts\build-exe.ps1
 
 数据目录：`%LOCALAPPDATA%\Somnia`
 
-请在登录页用邮箱自行注册。住客可直接使用；酒店员工注册后须主管理员在「员工审核」中同意，才能进入管理端和 SimpleUI。
+请用可接收邮件的真实邮箱注册。登录需图形验证码，注册验证码会发到该邮箱。酒店员工注册后即可使用管理端；数据后台账号须主管理员在 SimpleUI 中同意。发信前请在数据后台「发信设置」填写邮箱 SMTP 授权码。
 
 ## 网页版
 

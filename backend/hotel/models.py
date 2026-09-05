@@ -8,7 +8,7 @@ class Account(models.Model):
 
     email = models.CharField("邮箱", max_length=120, primary_key=True)
     password = models.CharField("密码", max_length=128)
-    role = models.CharField("角色", max_length=20, choices=[("guest", "住客"), ("manager", "管理员")])
+    role = models.CharField("角色", max_length=20, choices=[("guest", "住客"), ("manager", "酒店管理员"), ("backend", "数据后台")])
     nickname = models.CharField("昵称", max_length=80)
     status = models.CharField("审核状态", max_length=20, choices=STATUS, default="active")
     is_owner = models.BooleanField("主管理员", default=False)
@@ -33,6 +33,13 @@ class ManagerAccount(Account):
         proxy = True
         verbose_name = "酒店管理员账号"
         verbose_name_plural = "酒店管理员账号"
+
+
+class BackendAccount(Account):
+    class Meta:
+        proxy = True
+        verbose_name = "数据后台账号"
+        verbose_name_plural = "数据后台账号"
 
 
 class SessionToken(models.Model):
@@ -247,6 +254,36 @@ class HotelMeta(models.Model):
     simulating = models.BooleanField("仿真运行中", default=True)
     trend_json = models.TextField("趋势 JSON", default="[]")
     staff_invite_code = models.CharField("员工邀请码", max_length=16, blank=True, default="")
+    smtp_host = models.CharField("发信服务器", max_length=120, blank=True, default="smtp.qq.com")
+    smtp_port = models.IntegerField("发信端口", default=465)
+    smtp_user = models.CharField("发信邮箱", max_length=120, blank=True, default="")
+    smtp_password = models.CharField("发信授权码", max_length=120, blank=True, default="")
+    smtp_use_ssl = models.BooleanField("SSL", default=True)
+
+
+class VerifyCode(models.Model):
+    PURPOSE = [("register", "注册"), ("login", "登录")]
+    email = models.CharField("邮箱", max_length=120, db_index=True)
+    purpose = models.CharField("用途", max_length=20, choices=PURPOSE)
+    code = models.CharField("验证码", max_length=128)
+    expires_at = models.DateTimeField("过期时间")
+    used = models.BooleanField("已使用", default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = "邮箱验证码"
+        verbose_name_plural = "邮箱验证码"
+
+
+class CaptchaChallenge(models.Model):
+    id = models.CharField(max_length=32, primary_key=True)
+    code = models.CharField(max_length=16)
+    expires_at = models.DateTimeField()
+    used = models.BooleanField(default=False)
+
+    class Meta:
+        verbose_name = "图形验证码"
+        verbose_name_plural = "图形验证码"
 
     class Meta:
         verbose_name = "仿真状态"

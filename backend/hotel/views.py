@@ -21,6 +21,7 @@ from .security import (
     valid_email,
     verify_password,
 )
+from .verify import consume_captcha, consume_email_code, create_captcha, is_real_email, send_email_code
 from .serializers import apply_room_dict, guest_to_dict, room_to_dict, service_to_dict
 from .services import apply_device_patch, bind_guest_to_room, build_overview, get_meta
 from .stays import checkout_guest
@@ -30,14 +31,45 @@ def fail(detail: str, status: int = 400) -> JsonResponse:
     return JsonResponse({"detail": detail}, status=status)
 
 
+@api_view(["GET"])
+def captcha(request: Request) -> JsonResponse:
+    import base64
+
+    challenge_id, png = create_captcha()
+    return JsonResponse({"captchaId": challenge_id, "image": "data:image/png;base64," + base64.b64encode(png).decode("ascii")})
+
+
+@api_view(["POST"])
+def send_code(request: Request) -> JsonResponse:
+    email = str(request.data.get("email") or "").strip().lower()
+    purpose = str(request.data.get("purpose") or "register").strip()
+    if purpose not in ("register", "login"):
+        return fail("验证码用途不正确")
+    if not valid_email(email) or not is_real_email(email):
+        return fail("请使用可接收邮件的真实邮箱")
+    if purpose == "register" and Account.objects.filter(email=email).exists():
+        return fail("该邮箱已注册")
+    if purpose == "login" and not Account.objects.filter(email=email).exists():
+        return fail("该邮箱尚未注册")
+    try:
+        send_email_code(email, purpose)
+    except ValueError as exc:
+        return fail(str(exc))
+    return JsonResponse({"ok": True})
+
+
 @api_view(["POST"])
 def login(request: Request) -> JsonResponse:
     email = str(request.data.get("email") or "").strip().lower()
     password = str(request.data.get("password") or "")
+    captcha_id = str(request.data.get("captchaId") or "")
+    captcha_text = str(request.data.get("captcha") or "")
+    if not consume_captcha(captcha_id, captcha_text):
+        return fail("图形验证码不正确")
     account = Account.objects.filter(email=email).first()
     if not account or not verify_password(password, account.password):
         return fail("邮箱或密码不正确")
-    if account.role == "manager" and account.status != "active":
+    if account.role == "backend" and account.status != "active":
         return fail("账号待管理员审核" if account.status == "pending" else "账号未通过审核")
     if not is_hashed(account.password):
         account.password = hash_password(password)
@@ -53,17 +85,20 @@ def register(request: Request) -> JsonResponse:
     password = str(request.data.get("password") or "")
     nickname = str(request.data.get("nickname") or "").strip()
     role = str(request.data.get("role") or "guest").strip()
-    if role not in ("guest", "manager"):
+    email_code = str(request.data.get("emailCode") or "")
+    if role not in ("guest", "manager", "backend"):
         return fail("请选择账号类型")
-    if not valid_email(email):
-        return fail("请输入有效邮箱")
+    if not valid_email(email) or not is_real_email(email):
+        return fail("请使用可接收邮件的真实邮箱")
     if len(password) < 8:
         return fail("密码至少 8 位")
     if not nickname:
         return fail("请填写姓名")
     if Account.objects.filter(email=email).exists():
         return fail("该邮箱已注册")
-    pending = role == "manager"
+    if not consume_email_code(email, "register", email_code):
+        return fail("邮箱验证码不正确")
+    pending = role == "backend"
     account = Account.objects.create(
         email=email,
         password=hash_password(password),
@@ -74,19 +109,20 @@ def register(request: Request) -> JsonResponse:
     )
     if role == "guest":
         Guest.objects.get_or_create(email=email, defaults={"nickname": nickname})
-        token = secrets.token_hex(24)
-        SessionToken.objects.create(token=token, email=email)
-        return JsonResponse(session_payload(account, token))
-    sync_backend_user(account)
-    return JsonResponse(
-        {
-            "pending": True,
-            "email": email,
-            "role": "manager",
-            "nickname": nickname,
-            "detail": "已提交注册，等待主管理员同意后才能登录管理端",
-        }
-    )
+    if pending:
+        sync_backend_user(account)
+        return JsonResponse(
+            {
+                "pending": True,
+                "email": email,
+                "role": "backend",
+                "nickname": nickname,
+                "detail": "已提交，等待主管理员同意后才能进入数据后台",
+            }
+        )
+    token = secrets.token_hex(24)
+    SessionToken.objects.create(token=token, email=email)
+    return JsonResponse(session_payload(account, token))
 
 
 @api_view(["GET"])
@@ -115,7 +151,7 @@ def staff_to_dict(account: Account) -> dict:
 @api_view(["GET"])
 def list_staff(request: Request) -> JsonResponse:
     require_owner(request)
-    rows = [staff_to_dict(item) for item in Account.objects.filter(role="manager").order_by("-is_owner", "status", "email")]
+    rows = [staff_to_dict(item) for item in Account.objects.filter(role="backend").order_by("status", "email")]
     return JsonResponse(rows, safe=False)
 
 
@@ -123,9 +159,9 @@ def list_staff(request: Request) -> JsonResponse:
 def review_staff(request: Request, email: str) -> JsonResponse:
     require_owner(request)
     email = email.strip().lower()
-    account = Account.objects.filter(email=email, role="manager").first()
+    account = Account.objects.filter(email=email, role="backend").first()
     if not account:
-        return fail("员工账号不存在", 404)
+        return fail("数据后台账号不存在", 404)
     if account.is_owner:
         return fail("不能审核主管理员")
     approved = bool(request.data.get("approved"))

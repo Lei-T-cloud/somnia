@@ -26,7 +26,7 @@ const status = computed(() =>
       <span>房间调控</span>
       <em v-if="room">{{ room.id }}</em>
     </div>
-    <div v-if="!room" class="empty">在幕布或左侧列表中点选房间，开始调控闭环。</div>
+    <div v-if="!room" class="empty">在幕布或左侧列表中点选房间，开始调控。</div>
     <div v-else class="body">
       <div class="feed">
         <small>LIVE · 环境仿真</small>

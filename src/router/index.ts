@@ -73,11 +73,6 @@ const router = createRouter({
           name: 'manager-requests',
           component: () => import('@/views/manager/ManagerRequestsView.vue'),
         },
-        {
-          path: 'staff',
-          name: 'manager-staff',
-          component: () => import('@/views/manager/ManagerStaffView.vue'),
-        },
       ],
     },
     {
@@ -89,6 +84,10 @@ const router = createRouter({
 
 router.beforeEach((to) => {
   const auth = useAuthStore()
+  if (auth.role === 'backend') {
+    window.location.assign('/admin/')
+    return false
+  }
   if (to.meta.public) {
     if (auth.isLoggedIn) {
       return auth.role === 'manager' ? '/manager/twin' : '/guest/preference'

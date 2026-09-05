@@ -100,10 +100,12 @@ backend/                 Django 后台
 
 | 方法 | 路径 | 说明 |
 | --- | --- | --- |
-| POST | `/auth/login` | `{ email, password }` |
-| POST | `/auth/register` | `{ email, password, nickname, role }` 住客立即登录；员工待审核 |
-| GET | `/hotel/staff` | 主管理员：员工审核列表 |
-| POST | `/hotel/staff/{email}/review` | `{ approved }` 主管理员同意或拒绝 |
+| GET | `/auth/captcha` | 登录图形验证码 |
+| POST | `/auth/email-code` | `{ email, purpose }` 向真实邮箱发送验证码 |
+| POST | `/auth/login` | `{ email, password, captchaId, captcha }` |
+| POST | `/auth/register` | `{ email, password, nickname, role, emailCode }` |
+| GET | `/hotel/staff` | 主管理员：数据后台账号审核 |
+| POST | `/hotel/staff/{email}/review` | `{ approved }` 同意或拒绝数据后台账号 |
 | GET | `/auth/me` | |
 | POST | `/auth/logout` | |
 | GET | `/guests` | |
@@ -123,7 +125,7 @@ backend/                 Django 后台
 | POST | `/hotel/simulation` | `{ running }` |
 | GET | `/health` | |
 
-角色字段只有 `guest | manager`。前端路由与后端都要校验。
+角色字段只有 `guest | manager | backend`。前端路由与后端都要校验。
 
 ---
 
@@ -131,11 +133,10 @@ backend/                 Django 后台
 
 不预置演示账号。住客与酒店员工都通过 `/login` 用邮箱自行注册。
 
-- 住客：姓名 + 邮箱 + 密码（至少 8 位）
-- 酒店员工：注册后须主管理员在「员工审核」或 SimpleUI 中同意，才能登录管理端
-- SimpleUI：仅已通过的管理员可进；主管理员为超级用户
+- 住客 / 酒店员工：真实邮箱注册，邮箱验证码；登录需图形验证码
+- 数据后台：注册后须主管理员在 SimpleUI「数据后台账号」中同意
+- 发信：SimpleUI「发信设置」填写 SMTP 授权码后才能寄出验证码
 - 初始化：`backend/.venv/Scripts/python.exe manage.py init_hotel`
-- 写入主管理员：`manage.py create_owner --email ... --nickname ... --password ...`
 
 ---
 

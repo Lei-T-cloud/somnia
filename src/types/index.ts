@@ -1,4 +1,4 @@
-export type UserRole = 'guest' | 'manager'
+export type UserRole = 'guest' | 'manager' | 'backend'
 
 export type StayScene = 'business' | 'wellness' | 'family' | 'leisure'
 export type AgeGroup = '18-25' | '26-35' | '36-50' | '51+'

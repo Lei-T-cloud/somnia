@@ -72,7 +72,7 @@ async function logout() {
         </div>
         <router-link to="/manager/rooms"><em>02</em>房间更新</router-link>
         <router-link to="/manager/requests"><em>03</em>用户需求</router-link>
-        <router-link v-if="auth.isOwner" to="/manager/staff"><em>04</em>员工审核</router-link>
+        <a v-if="auth.isOwner" href="/admin/"><em>04</em>数据后台</a>
       </aside>
       <div class="main">
         <router-view />

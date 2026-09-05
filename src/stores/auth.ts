@@ -40,9 +40,17 @@ export const useAuthStore = defineStore('auth', () => {
     persistSession()
   }
 
-  async function login(email: string, password: string): Promise<string | null> {
+  function enterHome(next = role.value) {
+    if (next === 'backend') {
+      window.location.assign('/admin/')
+      return
+    }
+    return next === 'manager' ? '/manager/twin' : '/guest/preference'
+  }
+
+  async function login(email: string, password: string, captchaId: string, captcha: string): Promise<string | null> {
     try {
-      const { data } = await api.post('/auth/login', { email, password })
+      const { data } = await api.post('/auth/login', { email, password, captchaId, captcha })
       acceptSession(data)
       return null
     } catch (error) {
@@ -55,14 +63,29 @@ export const useAuthStore = defineStore('auth', () => {
     password: string,
     nickname: string,
     role: UserRole,
+    emailCode: string,
   ): Promise<'pending' | string | null> {
     try {
-      const { data } = await api.post('/auth/register', { email, password, nickname, role })
+      const { data } = await api.post('/auth/register', { email, password, nickname, role, emailCode })
       if (data.pending) return 'pending'
       acceptSession(data)
       return null
     } catch (error) {
       return apiError(error, '注册失败')
+    }
+  }
+
+  async function fetchCaptcha() {
+    const { data } = await api.get<{ captchaId: string; image: string }>('/auth/captcha')
+    return data
+  }
+
+  async function sendEmailCode(email: string, purpose: 'register' | 'login') {
+    try {
+      await api.post('/auth/email-code', { email, purpose }, { timeout: 25000 })
+      return null
+    } catch (error) {
+      return apiError(error, '验证码发送失败')
     }
   }
 
@@ -89,5 +112,5 @@ export const useAuthStore = defineStore('auth', () => {
     persistSession()
   }
 
-  return { user, isLoggedIn, role, isOwner, login, register, refreshProfile, logout }
+  return { user, isLoggedIn, role, isOwner, enterHome, login, register, fetchCaptcha, sendEmailCode, refreshProfile, logout }
 })

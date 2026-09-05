@@ -36,7 +36,7 @@ GuestPreference → SleepSceneEngine → HotelDigitalTwin ⇄ EnvSimulator
 
 ### 角色与功能边界
 
-统一登录页：邮箱 + 密码登录；注册时选择住客或酒店员工。登录后按账号角色进入完全不同的工作台。不做微信/短信登录。
+统一登录页：邮箱 + 密码登录；注册时选择住客或酒店员工。酒店员工注册后须经主管理员同意才能进入管理端。登录后按账号角色进入完全不同的工作台。不做微信/短信登录。
 
 **用户端（Guest）**
 
@@ -65,7 +65,8 @@ GuestPreference → SleepSceneEngine → HotelDigitalTwin ⇄ EnvSimulator
 
 ### 信息架构
 
-- `/login`：邮箱密码登录；注册时选择住客或酒店员工（后续员工需邀请码）
+- `/login`：邮箱密码登录；注册时选择住客或酒店员工（员工须主管理员审核）
+- `/manager/staff`：主管理员审核酒店员工注册
 - `/guest/preference`：用户偏好（确认后上传后端）
 - `/guest/rooms`：房间选择（三维模型 + 实景图 + 确认）
 - `/guest/services`：酒店服务多选提交
@@ -116,10 +117,10 @@ GuestPreference → SleepSceneEngine → HotelDigitalTwin ⇄ EnvSimulator
 ### 账号约定
 
 - 住客：邮箱注册（姓名、密码、确认密码），密码至少 8 位，服务端哈希存储
-- 酒店员工：首位员工可直接注册；之后加入需填写员工邀请码
-- 首位酒店员工同时成为 SimpleUI 后台超级用户（邮箱即后台用户名）
+- 酒店员工：注册后状态为待审核，须主管理员同意后才能登录管理端与 SimpleUI
+- 主管理员可在 `/manager/staff` 或 SimpleUI「酒店管理员账号」中通过/拒绝
 - 角色字段 `guest | manager`，前端路由与后端都校验
-- 不预置演示账号或统一默认密码
+- 不预置演示账号或统一默认密码；主管理员由本机命令写入，密码不进仓库
 
 ### 默认假设
 

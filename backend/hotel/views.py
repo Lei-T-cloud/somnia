@@ -10,15 +10,14 @@ from rest_framework.request import Request
 from app.engine.simulator import derive_light, derive_noise
 from app.engine.sleep_scene import derive_sleep_portrait
 
-from .authz import current_account, require_manager
+from .authz import current_account, require_manager, require_owner
 from .intake import apply_preference, extract_preference, log_upload, mark_room_selected, mark_services_submitted, now_iso
 from .models import Account, Guest, GuestServiceChoice, HotelService, Room, SessionToken
 from .security import (
-    ensure_invite_code,
     hash_password,
     is_hashed,
-    provision_staff_user,
     session_payload,
+    sync_backend_user,
     valid_email,
     verify_password,
 )
@@ -38,6 +37,8 @@ def login(request: Request) -> JsonResponse:
     account = Account.objects.filter(email=email).first()
     if not account or not verify_password(password, account.password):
         return fail("邮箱或密码不正确")
+    if account.role == "manager" and account.status != "active":
+        return fail("账号待管理员审核" if account.status == "pending" else "账号未通过审核")
     if not is_hashed(account.password):
         account.password = hash_password(password)
         account.save(update_fields=["password"])
@@ -62,33 +63,78 @@ def register(request: Request) -> JsonResponse:
         return fail("请填写姓名")
     if Account.objects.filter(email=email).exists():
         return fail("该邮箱已注册")
-    if role == "manager" and Account.objects.filter(role="manager").exists():
-        code = str(request.data.get("inviteCode") or "").strip().upper()
-        if code != ensure_invite_code():
-            return fail("员工邀请码不正确")
+    pending = role == "manager"
     account = Account.objects.create(
         email=email,
         password=hash_password(password),
         role=role,
         nickname=nickname,
+        status="pending" if pending else "active",
+        is_owner=False,
     )
     if role == "guest":
         Guest.objects.get_or_create(email=email, defaults={"nickname": nickname})
-    else:
-        provision_staff_user(email, password)
-        ensure_invite_code()
-    token = secrets.token_hex(24)
-    SessionToken.objects.create(token=token, email=email)
-    return JsonResponse(session_payload(account, token))
+        token = secrets.token_hex(24)
+        SessionToken.objects.create(token=token, email=email)
+        return JsonResponse(session_payload(account, token))
+    sync_backend_user(account)
+    return JsonResponse(
+        {
+            "pending": True,
+            "email": email,
+            "role": "manager",
+            "nickname": nickname,
+            "detail": "已提交注册，等待主管理员同意后才能登录管理端",
+        }
+    )
 
 
 @api_view(["GET"])
 def me(request: Request) -> JsonResponse:
     account = current_account(request)
-    payload = {"email": account.email, "role": account.role, "nickname": account.nickname}
-    if account.role == "manager":
-        payload["inviteCode"] = ensure_invite_code()
-    return JsonResponse(payload)
+    return JsonResponse(
+        {
+            "email": account.email,
+            "role": account.role,
+            "nickname": account.nickname,
+            "isOwner": account.is_owner,
+            "status": account.status,
+        }
+    )
+
+
+def staff_to_dict(account: Account) -> dict:
+    return {
+        "email": account.email,
+        "nickname": account.nickname,
+        "status": account.status,
+        "isOwner": account.is_owner,
+    }
+
+
+@api_view(["GET"])
+def list_staff(request: Request) -> JsonResponse:
+    require_owner(request)
+    rows = [staff_to_dict(item) for item in Account.objects.filter(role="manager").order_by("-is_owner", "status", "email")]
+    return JsonResponse(rows, safe=False)
+
+
+@api_view(["POST"])
+def review_staff(request: Request, email: str) -> JsonResponse:
+    require_owner(request)
+    email = email.strip().lower()
+    account = Account.objects.filter(email=email, role="manager").first()
+    if not account:
+        return fail("员工账号不存在", 404)
+    if account.is_owner:
+        return fail("不能审核主管理员")
+    approved = bool(request.data.get("approved"))
+    account.status = "active" if approved else "rejected"
+    account.save(update_fields=["status"])
+    if not approved:
+        SessionToken.objects.filter(email=email).delete()
+    sync_backend_user(account)
+    return JsonResponse(staff_to_dict(account))
 
 
 @api_view(["POST"])

@@ -4,10 +4,14 @@ from django.db import models
 
 
 class Account(models.Model):
+    STATUS = [("active", "已通过"), ("pending", "待审核"), ("rejected", "已拒绝")]
+
     email = models.CharField("邮箱", max_length=120, primary_key=True)
     password = models.CharField("密码", max_length=128)
     role = models.CharField("角色", max_length=20, choices=[("guest", "住客"), ("manager", "管理员")])
     nickname = models.CharField("昵称", max_length=80)
+    status = models.CharField("审核状态", max_length=20, choices=STATUS, default="active")
+    is_owner = models.BooleanField("主管理员", default=False)
 
     class Meta:
         verbose_name = "前台账号"

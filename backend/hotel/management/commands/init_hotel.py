@@ -10,7 +10,6 @@ from PIL import Image, ImageDraw, ImageFont
 from app.engine.simulator import derive_light, derive_noise
 
 from hotel.models import Account, Guest, GuestStay, GuestUpload, HotelMeta, HotelService, Room
-from hotel.security import ensure_invite_code
 
 SERVICE_CATALOG = [
     ("late-checkout", "延迟退房", "客房配套", "可将退房时间延后至下午 14:00", 10),
@@ -140,6 +139,4 @@ class Command(BaseCommand):
             ]
         )
         meta.save(update_fields=["simulating", "trend_json"])
-        if Account.objects.filter(role="manager").exists():
-            ensure_invite_code()
         self.stdout.write(self.style.SUCCESS("酒店库存已就绪，请通过注册创建账号"))

@@ -21,19 +21,21 @@ export const useAuthStore = defineStore('auth', () => {
 
   const isLoggedIn = computed(() => Boolean(user.value && localStorage.getItem(TOKEN_KEY)))
   const role = computed(() => user.value?.role ?? null)
+  const isOwner = computed(() => Boolean(user.value?.isOwner))
 
   function persistSession() {
     if (user.value) localStorage.setItem(AUTH_KEY, JSON.stringify(user.value))
     else localStorage.removeItem(AUTH_KEY)
   }
 
-  function acceptSession(data: { token: string; email: string; role: UserRole; nickname: string; inviteCode?: string }) {
+  function acceptSession(data: SessionUser & { token: string }) {
     localStorage.setItem(TOKEN_KEY, data.token)
     user.value = {
       email: data.email,
       role: data.role,
       nickname: data.nickname,
-      inviteCode: data.inviteCode,
+      isOwner: data.isOwner,
+      status: data.status,
     }
     persistSession()
   }
@@ -53,10 +55,10 @@ export const useAuthStore = defineStore('auth', () => {
     password: string,
     nickname: string,
     role: UserRole,
-    inviteCode = '',
-  ): Promise<string | null> {
+  ): Promise<'pending' | string | null> {
     try {
-      const { data } = await api.post('/auth/register', { email, password, nickname, role, inviteCode })
+      const { data } = await api.post('/auth/register', { email, password, nickname, role })
+      if (data.pending) return 'pending'
       acceptSession(data)
       return null
     } catch (error) {
@@ -87,5 +89,5 @@ export const useAuthStore = defineStore('auth', () => {
     persistSession()
   }
 
-  return { user, isLoggedIn, role, login, register, refreshProfile, logout }
+  return { user, isLoggedIn, role, isOwner, login, register, refreshProfile, logout }
 })

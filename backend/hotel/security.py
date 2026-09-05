@@ -4,7 +4,7 @@ import secrets
 from django.contrib.auth.hashers import check_password, identify_hasher, make_password
 from django.contrib.auth.models import User
 
-from .models import Account, HotelMeta
+from .models import Account
 
 EMAIL_RE = re.compile(r"^[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,}$")
 
@@ -35,30 +35,41 @@ def is_hashed(stored: str) -> bool:
         return False
 
 
-def ensure_invite_code() -> str:
-    meta, _ = HotelMeta.objects.get_or_create(id=1, defaults={"simulating": True, "trend_json": "[]"})
-    if not meta.staff_invite_code:
-        meta.staff_invite_code = secrets.token_hex(4).upper()
-        meta.save(update_fields=["staff_invite_code"])
-    return meta.staff_invite_code
-
-
 def session_payload(account: Account, token: str) -> dict:
-    data = {
+    return {
         "token": token,
         "email": account.email,
         "role": account.role,
         "nickname": account.nickname,
+        "isOwner": account.is_owner,
+        "status": account.status,
     }
-    if account.role == "manager":
-        data["inviteCode"] = ensure_invite_code()
-    return data
 
 
-def provision_staff_user(email: str, password: str) -> None:
-    if User.objects.filter(username=email).exists():
-        return
-    if not User.objects.filter(is_superuser=True).exists():
-        User.objects.create_superuser(email, email, password)
-        return
-    User.objects.create_user(email, email, password, is_staff=True)
+def sync_backend_user(account: Account) -> None:
+    user = User.objects.filter(username=account.email).first()
+    if user is None:
+        user = User(username=account.email, email=account.email)
+    user.email = account.email
+    user.password = account.password
+    user.is_staff = account.role == "manager" and account.status == "active"
+    user.is_superuser = account.is_owner and account.status == "active"
+    user.is_active = account.status == "active"
+    user.save()
+
+
+def ensure_owner(email: str, nickname: str, password: str) -> Account:
+    email = email.strip().lower()
+    account, _ = Account.objects.update_or_create(
+        email=email,
+        defaults={
+            "password": hash_password(password),
+            "role": "manager",
+            "nickname": nickname.strip(),
+            "status": "active",
+            "is_owner": True,
+        },
+    )
+    Account.objects.exclude(email=email).filter(is_owner=True).update(is_owner=False)
+    sync_backend_user(account)
+    return account

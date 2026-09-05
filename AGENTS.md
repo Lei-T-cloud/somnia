@@ -101,7 +101,9 @@ backend/                 Django 后台
 | 方法 | 路径 | 说明 |
 | --- | --- | --- |
 | POST | `/auth/login` | `{ email, password }` |
-| POST | `/auth/register` | `{ email, password, nickname, role, inviteCode? }` 住客或酒店员工 |
+| POST | `/auth/register` | `{ email, password, nickname, role }` 住客立即登录；员工待审核 |
+| GET | `/hotel/staff` | 主管理员：员工审核列表 |
+| POST | `/hotel/staff/{email}/review` | `{ approved }` 主管理员同意或拒绝 |
 | GET | `/auth/me` | |
 | POST | `/auth/logout` | |
 | GET | `/guests` | |
@@ -130,9 +132,10 @@ backend/                 Django 后台
 不预置演示账号。住客与酒店员工都通过 `/login` 用邮箱自行注册。
 
 - 住客：姓名 + 邮箱 + 密码（至少 8 位）
-- 酒店员工：首位可直接注册；之后需管理端右上角「邀请码」
-- SimpleUI：首位员工的邮箱即后台用户名，密码与注册时相同
+- 酒店员工：注册后须主管理员在「员工审核」或 SimpleUI 中同意，才能登录管理端
+- SimpleUI：仅已通过的管理员可进；主管理员为超级用户
 - 初始化：`backend/.venv/Scripts/python.exe manage.py init_hotel`
+- 写入主管理员：`manage.py create_owner --email ... --nickname ... --password ...`
 
 ---
 

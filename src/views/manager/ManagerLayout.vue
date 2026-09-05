@@ -25,14 +25,6 @@ onMounted(async () => {
   await hotel.startSimulation()
 })
 
-async function copyInvite() {
-  const code = auth.user?.inviteCode
-  if (!code) return
-  await navigator.clipboard.writeText(code)
-  const { ElMessage } = await import('element-plus')
-  ElMessage.success('邀请码已复制')
-}
-
 onBeforeUnmount(() => {
   hotel.stopSimulation()
 })
@@ -54,9 +46,6 @@ async function logout() {
       </div>
       <div class="who">
         <span class="live"><i class="status-dot" :class="{ off: !hotel.simulating }" />{{ hotel.simulating ? '仿真运行' : '仿真暂停' }}</span>
-        <button v-if="auth.user?.inviteCode" class="invite" type="button" @click="copyInvite">
-          邀请码 {{ auth.user.inviteCode }}
-        </button>
         <span class="user-chip">
           <i>{{ (auth.user?.nickname ?? '管').slice(0, 1) }}</i>
           {{ auth.user?.nickname }}
@@ -83,6 +72,7 @@ async function logout() {
         </div>
         <router-link to="/manager/rooms"><em>02</em>房间更新</router-link>
         <router-link to="/manager/requests"><em>03</em>用户需求</router-link>
+        <router-link v-if="auth.isOwner" to="/manager/staff"><em>04</em>员工审核</router-link>
       </aside>
       <div class="main">
         <router-view />
@@ -97,22 +87,6 @@ async function logout() {
   display: flex;
   align-items: center;
   gap: 12px;
-}
-
-.invite {
-  border: 1px solid var(--line);
-  background: transparent;
-  color: var(--muted);
-  border-radius: 8px;
-  padding: 4px 10px;
-  font: inherit;
-  font-size: 12px;
-  cursor: pointer;
-}
-
-.invite:hover {
-  color: var(--text);
-  border-color: var(--line-strong);
 }
 
 .live {

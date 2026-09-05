@@ -73,6 +73,11 @@ const router = createRouter({
           name: 'manager-requests',
           component: () => import('@/views/manager/ManagerRequestsView.vue'),
         },
+        {
+          path: 'staff',
+          name: 'manager-staff',
+          component: () => import('@/views/manager/ManagerStaffView.vue'),
+        },
       ],
     },
     {

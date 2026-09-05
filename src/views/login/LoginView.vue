@@ -16,7 +16,6 @@ const form = reactive({
   password: '',
   confirm: '',
   nickname: '',
-  inviteCode: '',
 })
 
 function homeOf(role: UserRole) {
@@ -28,7 +27,6 @@ function resetForm() {
   form.password = ''
   form.confirm = ''
   form.nickname = ''
-  form.inviteCode = ''
 }
 
 function switchMode(next: 'login' | 'register') {
@@ -59,13 +57,18 @@ async function submit() {
   }
 
   loading.value = true
-  const error =
+  const result =
     mode.value === 'register'
-      ? await auth.register(email, password, form.nickname.trim(), registerRole.value, form.inviteCode.trim())
+      ? await auth.register(email, password, form.nickname.trim(), registerRole.value)
       : await auth.login(email, password)
   loading.value = false
-  if (error) {
-    ElMessage.error(error)
+  if (result === 'pending') {
+    ElMessage.success('已提交，等待主管理员同意后才能登录管理端')
+    switchMode('login')
+    return
+  }
+  if (result) {
+    ElMessage.error(result)
     return
   }
   const role = auth.role
@@ -105,7 +108,7 @@ async function submit() {
       <div class="card">
         <header>
           <h2>{{ mode === 'login' ? '登录' : '创建账号' }}</h2>
-          <p>{{ mode === 'login' ? '使用邮箱和密码进入眠栖' : '选择身份后填写资料，即可开始使用' }}</p>
+          <p>{{ mode === 'login' ? '使用邮箱和密码进入眠栖' : registerRole === 'manager' ? '酒店员工注册后须主管理员同意才能进入' : '选择身份后填写资料，即可开始使用' }}</p>
         </header>
 
         <div v-if="mode === 'register'" class="roles">
@@ -132,12 +135,9 @@ async function submit() {
           <el-form-item v-if="mode === 'register'" label="确认密码">
             <el-input v-model="form.confirm" type="password" show-password autocomplete="new-password" placeholder="再输入一次密码" />
           </el-form-item>
-          <el-form-item v-if="mode === 'register' && registerRole === 'manager'" label="员工邀请码">
-            <el-input v-model="form.inviteCode" placeholder="首位员工无需填写，之后加入请向管理员索取" />
-          </el-form-item>
           <div class="actions">
             <button class="gold-btn" type="submit" :disabled="loading">
-              {{ mode === 'register' ? '注册并进入' : '登录' }}
+              {{ mode === 'register' ? (registerRole === 'manager' ? '提交审核' : '注册并进入') : '登录' }}
             </button>
             <button class="ghost-btn" type="button" @click="switchMode(mode === 'login' ? 'register' : 'login')">
               {{ mode === 'login' ? '没有账号？注册' : '已有账号？去登录' }}

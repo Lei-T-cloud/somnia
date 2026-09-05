@@ -193,8 +193,14 @@ class AccountRoleAdmin(admin.ModelAdmin):
         return super().get_queryset(request).filter(role=self.role)
 
     def save_model(self, request, obj, form, change):
+        from .security import is_hashed, hash_password, sync_backend_user
+
         obj.role = self.role
+        if obj.password and not is_hashed(obj.password):
+            obj.password = hash_password(obj.password)
         super().save_model(request, obj, form, change)
+        if obj.role == "manager":
+            sync_backend_user(obj)
 
 
 @admin.register(GuestAccount)
@@ -209,6 +215,30 @@ class GuestAccountAdmin(AccountRoleAdmin):
 @admin.register(ManagerAccount)
 class ManagerAccountAdmin(AccountRoleAdmin):
     role = "manager"
+    list_display = ("email", "nickname", "status", "is_owner")
+    list_filter = ("status", "is_owner")
+    fields = ("email", "nickname", "password", "status", "is_owner")
+    actions = ["approve_staff", "reject_staff"]
+
+    @admin.action(description="通过并允许进入管理端")
+    def approve_staff(self, request, queryset):
+        from .security import sync_backend_user
+
+        for account in queryset.exclude(is_owner=True):
+            account.status = "active"
+            account.save(update_fields=["status"])
+            sync_backend_user(account)
+
+    @admin.action(description="拒绝进入管理端")
+    def reject_staff(self, request, queryset):
+        from .models import SessionToken
+        from .security import sync_backend_user
+
+        for account in queryset.exclude(is_owner=True):
+            account.status = "rejected"
+            account.save(update_fields=["status"])
+            SessionToken.objects.filter(email=account.email).delete()
+            sync_backend_user(account)
 
 
 @admin.register(HotelMeta)

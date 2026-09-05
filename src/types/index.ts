@@ -30,11 +30,21 @@ export interface CorridorCamera {
   coverages: CorridorCoverage[]
 }
 
+export type AccountStatus = 'active' | 'pending' | 'rejected'
+
 export interface SessionUser {
   email: string
   role: UserRole
   nickname: string
-  inviteCode?: string
+  isOwner?: boolean
+  status?: AccountStatus
+}
+
+export interface StaffAccount {
+  email: string
+  nickname: string
+  status: AccountStatus
+  isOwner: boolean
 }
 
 export interface AccountRecord {
